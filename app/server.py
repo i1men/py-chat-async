@@ -4,6 +4,7 @@
 import asyncio
 from asyncio import transports
 
+logins = []
 
 class ServerProtocol(asyncio.Protocol):
     login: str = None
@@ -23,9 +24,16 @@ class ServerProtocol(asyncio.Protocol):
         else:
             if decoded.startswith("login:"):
                 self.login = decoded.replace("login:", "").replace("\r\n", "")
-                self.transport.write(
-                    f"Привет, {self.login}!\n".encode()
-                )
+                if self.login not in logins:
+                    logins.append(self.login)
+                    self.transport.write(
+                        f"Привет, {self.login}!\n".encode()
+                    )
+                else:
+                    self.transport.write(
+                        f"Логин {self.login} занят, попробуйте другой\n".encode()
+                    )
+                    self.connection_terminate()
             else:
                 self.transport.write("Неправильный логин\n".encode())
 
@@ -37,6 +45,10 @@ class ServerProtocol(asyncio.Protocol):
     def connection_lost(self, exception):
         self.server.clients.remove(self)
         print("Клиент вышел")
+
+    def connection_terminate(self):
+        self.transport.close()
+        print("Клиент отключен")
 
     def send_message(self, content: str):
         message = f"{self.login}: {content}\n"
