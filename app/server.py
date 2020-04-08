@@ -5,6 +5,8 @@ import asyncio
 from asyncio import transports
 
 logins = []
+messages = []
+
 
 class ServerProtocol(asyncio.Protocol):
     login: str = None
@@ -26,6 +28,7 @@ class ServerProtocol(asyncio.Protocol):
                 self.login = decoded.replace("login:", "").replace("\r\n", "")
                 if self.login not in logins:
                     logins.append(self.login)
+                    self.send_history()
                     self.transport.write(
                         f"Привет, {self.login}!\n".encode()
                     )
@@ -48,13 +51,19 @@ class ServerProtocol(asyncio.Protocol):
 
     def connection_terminate(self):
         self.transport.close()
-        print("Клиент отключен")
 
     def send_message(self, content: str):
         message = f"{self.login}: {content}\n"
+        messages.append(message)
 
         for user in self.server.clients:
             user.transport.write(message.encode())
+
+    def send_history(self):
+        if len(messages) > 10:
+            self.transport.write("...".encode())
+        for message in messages[-10:]:
+            self.transport.write(message.encode())
 
 
 class Server:
